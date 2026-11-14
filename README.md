@@ -123,12 +123,12 @@ Keep credentials private. Do not commit them to this repository or paste them in
 
 1. Validate the URL and reject non-HTTP(S) schemes.
 2. Probe available engines concurrently with per-engine timeouts.
-3. Show ready, unsupported, unavailable, and disabled engines.
-4. Rank engines using the media hints returned by their probes.
+3. Distinguish engines that resolved usable media from engines that only recognized the URL; report plugin-only matches separately.
+4. Rank only engines that resolved usable media, using the media hints returned by their probes.
 5. Download with the selected engine.
 6. In automatic mode, move to the next probe-positive engine if a download fails.
 
-A probe is not a guarantee: websites change, signed URLs expire, network conditions vary, and some services require authentication. OmniFetch reports failures instead of claiming universal support.
+A Streamlink plugin match alone is not considered a usable extraction path. OmniFetch additionally asks Streamlink to resolve a stream URL; if that fails, the engine is reported as `PLUGIN MATCH` and excluded from automatic selection. A probe is still not a download guarantee: websites change, signed URLs expire, network conditions vary, and some services require authentication. OmniFetch reports failures instead of claiming universal support.
 
 ## Project status
 
