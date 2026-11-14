@@ -107,6 +107,8 @@ def print_results(results: list[ProbeResult]) -> None:
             label = _style("MISSING", "33;1")
         elif result.status == "DISABLED":
             label = _style("DISABLED", "2")
+        elif result.status == "PLUGIN_MATCH":
+            label = _style("PLUGIN MATCH", "33")
         elif result.status == "UNSUPPORTED":
             label = _style("NO MATCH", "31")
         else:
@@ -200,7 +202,10 @@ def command_probe(args: argparse.Namespace, config: dict[str, Any]) -> int:
     else:
         print_results(results)
         count = sum(1 for item in results if item.supported)
-        print(f"{count} engine(s) reported a usable extraction path.")
+        plugin_matches = sum(1 for item in results if item.status == "PLUGIN_MATCH")
+        print(f"{count} engine(s) resolved a usable extraction path.")
+        if plugin_matches:
+            print(f"{plugin_matches} additional engine(s) recognized the URL but could not resolve media.")
     return 0
 
 
