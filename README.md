@@ -33,6 +33,22 @@ bash install-termux.sh
 
 The installer installs the Python-based extraction tools, creates the `omnifetch` command in Termux's executable path, and leaves the source in `~/OmniFetch`.
 
+On Termux, Streamlink's `lxml` dependency may need native compilation. The installer includes `build-essential`, `libxml2`, and `libxslt` for this. If an earlier install attempt failed before this fix, update the checkout and rerun the installer:
+
+```bash
+cd "$HOME/OmniFetch"
+git pull
+bash install-termux.sh
+```
+
+If you still see an `lxml` build error, install the native prerequisites manually and retry:
+
+```bash
+pkg install build-essential libxml2 libxslt
+python -m pip install --no-cache-dir --upgrade lxml
+python -m pip install --upgrade streamlink
+```
+
 The storage prompt creates standard links under `~/storage`. The default download folder is `~/storage/downloads/OmniFetch` when available; otherwise OmniFetch uses `~/OmniFetch/downloads`.
 
 ## Usage
