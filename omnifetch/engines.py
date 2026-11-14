@@ -84,7 +84,7 @@ class YtDlpEngine(Engine):
         try:
             proc = _run(
                 [executable, "--dump-single-json", "--skip-download", "--no-warnings",
-                 "--no-call-home", url],
+                 url],
                 timeout=timeout,
             )
         except subprocess.TimeoutExpired:
@@ -123,7 +123,6 @@ class YtDlpEngine(Engine):
             executable,
             "--newline",
             "--no-warnings",
-            "--no-call-home",
             "--paths", str(output_dir),
             "--output", "%(title).150B [%(id)s].%(ext)s",
             "--format", "bv*+ba/b",
@@ -155,17 +154,37 @@ class StreamlinkEngine(Engine):
             return _missing(self.name, self.command)
 
         try:
-            proc = _run([executable, "--can-handle-url", url], timeout=timeout)
+            match = _run([executable, "--can-handle-url", url], timeout=timeout)
         except subprocess.TimeoutExpired:
-            return ProbeResult(self.name, "ERROR", False, 0, f"Streamlink probe timed out after {timeout}s.")
+            return ProbeResult(self.name, "ERROR", False, 0, f"Streamlink plugin check timed out after {timeout}s.")
 
-        if proc.returncode != 0:
-            return ProbeResult(self.name, "UNSUPPORTED", False, 0, _last_error(proc))
+        if match.returncode != 0:
+            return ProbeResult(self.name, "UNSUPPORTED", False, 0, _last_error(match))
+
+        # A plugin match only identifies a handler. Resolve an actual stream before
+        # advertising this engine as READY or including it in automatic selection.
+        try:
+            resolved = _run([executable, "--stream-url", url, "best"], timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return ProbeResult(
+                self.name, "PLUGIN_MATCH", False, 25,
+                f"Streamlink recognizes this URL, but stream resolution timed out after {timeout}s.",
+                {"plugin_match": True, "stream_resolved": False},
+            )
+
+        stream_url = (resolved.stdout or "").strip()
+        if resolved.returncode != 0 or not stream_url.startswith(("http://", "https://")):
+            detail = _last_error(resolved)
+            return ProbeResult(
+                self.name, "PLUGIN_MATCH", False, 25,
+                f"Streamlink recognizes this URL, but could not resolve an accessible stream. {detail}",
+                {"plugin_match": True, "stream_resolved": False},
+            )
 
         return ProbeResult(
             self.name, "READY", True, 85,
-            "Streamlink has a plugin that recognizes this URL.",
-            {"plugin_match": True},
+            "Streamlink recognized the URL and successfully resolved a stream.",
+            {"plugin_match": True, "stream_resolved": True},
         )
 
     def download(self, url: str, output_dir: Path, probe: ProbeResult | None = None) -> DownloadResult:
