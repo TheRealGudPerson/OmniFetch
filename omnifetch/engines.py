@@ -7,9 +7,9 @@ The module intentionally uses only the Python standard library.
 from __future__ import annotations
 
 import json
-import mimetypes
 import os
 import shutil
+import sys
 import subprocess
 import urllib.error
 import urllib.request
@@ -155,27 +155,17 @@ class StreamlinkEngine(Engine):
             return _missing(self.name, self.command)
 
         try:
-            proc = _run([executable, "--json", url], timeout=timeout)
+            proc = _run([executable, "--can-handle-url", url], timeout=timeout)
         except subprocess.TimeoutExpired:
             return ProbeResult(self.name, "ERROR", False, 0, f"Streamlink probe timed out after {timeout}s.")
 
         if proc.returncode != 0:
             return ProbeResult(self.name, "UNSUPPORTED", False, 0, _last_error(proc))
 
-        try:
-            data = json.loads(proc.stdout.strip() or "{}")
-        except json.JSONDecodeError:
-            data = {}
-
-        streams = data.get("streams") if isinstance(data, dict) else None
-        if not streams:
-            return ProbeResult(self.name, "UNSUPPORTED", False, 0, "Streamlink did not report any available streams.")
-
-        names = list(streams.keys()) if isinstance(streams, dict) else []
         return ProbeResult(
-            self.name, "READY", True, 80,
-            "Streamlink found stream(s): " + ", ".join(names[:8]),
-            {"streams": names, "is_live": True},
+            self.name, "READY", True, 85,
+            "Streamlink has a plugin that recognizes this URL.",
+            {"plugin_match": True},
         )
 
     def download(self, url: str, output_dir: Path, probe: ProbeResult | None = None) -> DownloadResult:
@@ -186,7 +176,7 @@ class StreamlinkEngine(Engine):
         output_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         output_path = output_dir / f"streamlink-{stamp}.ts"
-        command = [executable, "--force", url, "best", "--output", str(output_path)]
+        command = [executable, "--force", "--output", str(output_path), url, "best"]
         print(f"\nStarting Streamlink. Stop a live recording with Ctrl+C.")
         try:
             proc = subprocess.run(command, check=False)
@@ -236,7 +226,7 @@ class GalleryDlEngine(Engine):
             return DownloadResult(self.name, False, "gallery-dl is not installed.")
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        command = [executable, "--dest", str(output_dir), url]
+        command = [executable, "--destination", str(output_dir), url]
         print(f"\nStarting gallery-dl. Output folder: {output_dir}")
         try:
             proc = subprocess.run(command, check=False)
@@ -434,9 +424,25 @@ class CobaltEngine(Engine):
             choices = data.get("picker") or []
             if not choices:
                 return DownloadResult(self.name, False, "Cobalt returned an empty media picker.")
-            chosen = next((item for item in choices if item.get("type") == "video"), choices[0])
+            video_choices = [item for item in choices if item.get("type") in {"video", "gif"}]
+            choices = video_choices or choices
+            chosen_index = 0
+            if len(choices) > 1 and sys.stdin.isatty():
+                print("\\nCobalt found multiple media items:")
+                for index, item in enumerate(choices, start=1):
+                    print(f"  {index}. {item.get('type', 'media')}")
+                try:
+                    entered = input("Choose item [1]: ").strip()
+                    if entered.isdigit() and 1 <= int(entered) <= len(choices):
+                        chosen_index = int(entered) - 1
+                except (EOFError, KeyboardInterrupt):
+                    print()
+            chosen = choices[chosen_index]
             target_url = chosen.get("url")
             filename = chosen.get("filename") or filename
+            if not filename:
+                extension = {"video": ".mp4", "gif": ".gif", "photo": ".jpg"}.get(chosen.get("type"), ".bin")
+                filename = f"cobalt-{chosen.get('type', 'media')}-{chosen_index + 1}{extension}"
 
         parsed = urlsplit(str(target_url or ""))
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
