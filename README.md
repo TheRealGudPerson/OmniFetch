@@ -69,7 +69,10 @@ List engines and check the installation:
 ```bash
 omnifetch engines
 omnifetch doctor
+bash test-termux.sh
 ```
+
+The test runner checks Python syntax and runs the local unit tests. It does not make network requests or download media.
 
 Set a different output folder:
 
