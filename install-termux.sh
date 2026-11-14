@@ -10,7 +10,7 @@ fi
 
 echo "[1/3] Installing Termux system packages..."
 pkg update
-pkg install -y python python-pip ffmpeg aria2
+pkg install -y python python-pip ffmpeg aria2 build-essential libxml2 libxslt
 
 echo "[2/3] Installing extraction engines..."
 python -m pip install --upgrade "yt-dlp[default]" streamlink gallery-dl
