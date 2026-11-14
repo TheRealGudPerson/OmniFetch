@@ -428,7 +428,7 @@ class CobaltEngine(Engine):
             choices = video_choices or choices
             chosen_index = 0
             if len(choices) > 1 and sys.stdin.isatty():
-                print("\\nCobalt found multiple media items:")
+                print("\nCobalt found multiple media items:")
                 for index, item in enumerate(choices, start=1):
                     print(f"  {index}. {item.get('type', 'media')}")
                 try:
